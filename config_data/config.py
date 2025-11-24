@@ -3,11 +3,12 @@ from telebot import TeleBot
 from dotenv import load_dotenv, find_dotenv
 from pydantic.v1 import BaseSettings, SecretStr, StrictStr
 
-# Проверка наличия обязательных переменных
-if not find_dotenv():
-    exit("Переменные окружения не загружены т.к. отсутствует файл .env")
-else:
+# Пытаемся загрузить из .env (для локальной разработки), но не падаем если файла нет
+if find_dotenv():
     load_dotenv()
+    print("✅ Переменные окружения загружены из .env файла")
+else:
+    print("ℹ️ Файл .env не найден, используем переменные окружения системы")
 
 class SiteSettings(BaseSettings):
     """
@@ -19,10 +20,10 @@ class SiteSettings(BaseSettings):
         cat_facts_api (StrictStr): Ключ API для фактов о котах.
         translate_api (StrictStr): Ключ API для перевода.
     """
-    token: SecretStr = os.getenv("BOT_TOKEN", None)
-    cat_api: StrictStr = os.getenv("CAT_API_KEY", None)
-    cat_facts_api: StrictStr = os.getenv("CAT_FACTS_API_KEY", None)
-    translate_api: StrictStr = os.getenv("TRANSLATE_API_KEY", None)
+    token: SecretStr = os.getenv("BOT_TOKEN")
+    cat_api: StrictStr = os.getenv("CAT_API_KEY")
+    cat_facts_api: StrictStr = os.getenv("CAT_FACTS_API_KEY")
+    translate_api: StrictStr = os.getenv("TRANSLATE_API_KEY")
 
 # Определение команд по умолчанию
 DEFAULT_COMMANDS = (
@@ -71,7 +72,8 @@ Attributes:
 
 # Проверка наличия токена бота
 if not site.token:
-    raise ValueError("Не указан токен бота в переменных окружения")
+    raise ValueError("❌ ОШИБКА: Не указан токен бота в переменных окружения. "
+                   "Убедитесь, что BOT_TOKEN установлен в Railway Variables")
 
 """
 Проверка наличия токена бота.
@@ -82,6 +84,8 @@ Raises:
 
 # Инициализация бота
 bot = TeleBot(site.token.get_secret_value())
+
+print("✅ Бот успешно инициализирован с токеном из переменных окружения")
 
 """
 Инициализация бота Telegram.
