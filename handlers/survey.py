@@ -6,7 +6,8 @@ from aiogram.types import CallbackQuery, Message
 from aiogram.fsm.state import StatesGroup, State
 from aiogram.fsm.context import FSMContext
 
-from handlers.keyboards import survey_keyboard, main_menu_keyboard
+from handlers.keyboards import survey_keyboard, main_menu_keyboard, back_to_menu_keyboard
+from handlers.ui import edit_or_send, send_or_update_hub
 
 
 router = Router()
@@ -17,37 +18,52 @@ class CommentState(StatesGroup):
 
 
 @router.message(Command("survey"))
-async def survey_command(message: Message):
-    await message.answer(
-        "⭐ Оцени бота или оставь комментарий.",
-        reply_markup=survey_keyboard(),
+async def survey_command(message: Message, ui_state):
+    await send_or_update_hub(
+        message,
+        "⭐ <b>Оценка</b>\n────────\nОцени бота или оставь отзыв.",
+        survey_keyboard(),
+        ui_state,
     )
 
 
 @router.callback_query(F.data == "survey:open")
-async def survey_open(call: CallbackQuery):
-    await call.message.answer(
-        "⭐ Оцени бота или оставь комментарий.",
-        reply_markup=survey_keyboard(),
+async def survey_open(call: CallbackQuery, ui_state):
+    await edit_or_send(
+        call,
+        "⭐ <b>Оценка</b>\n────────\nОцени бота или оставь отзыв.",
+        survey_keyboard(),
+        ui_state,
     )
     await call.answer()
 
 
 @router.callback_query(F.data == "survey:rate")
-async def survey_rate(call: CallbackQuery):
+async def survey_rate(call: CallbackQuery, ui_state):
     await call.message.answer_poll(
-        question="Как тебе бот?",
+        question="Как тебе котик-ботик?",
         options=["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣"],
         is_anonymous=False,
         allows_multiple_answers=False,
+    )
+    await edit_or_send(
+        call,
+        "Спасибо! Хочешь еще что-то посмотреть?\n────────",
+        back_to_menu_keyboard(),
+        ui_state,
     )
     await call.answer()
 
 
 @router.callback_query(F.data == "survey:comment")
-async def survey_comment(call: CallbackQuery, state: FSMContext):
+async def survey_comment(call: CallbackQuery, state: FSMContext, ui_state):
     await state.set_state(CommentState.waiting_for_comment)
-    await call.message.answer("💬 Напиши комментарий одним сообщением.")
+    await edit_or_send(
+        call,
+        "💬 Напиши отзыв одним сообщением.\n────────",
+        back_to_menu_keyboard(),
+        ui_state,
+    )
     await call.answer()
 
 
@@ -55,13 +71,13 @@ async def survey_comment(call: CallbackQuery, state: FSMContext):
 async def handle_comment(message: Message, state: FSMContext):
     comment = message.text.strip() if message.text else ""
     if not comment:
-        await message.answer("Похоже, комментарий пустой. Попробуй еще раз.")
+        await message.answer("Похоже, отзыв пустой. Попробуй еще раз.")
         return
 
     await asyncio.to_thread(_append_comment, message.from_user.id, comment)
     await state.clear()
     await message.answer(
-        "Спасибо за отзыв! 😊",
+        "Спасибо за отзыв! 🐾",
         reply_markup=main_menu_keyboard(),
     )
 

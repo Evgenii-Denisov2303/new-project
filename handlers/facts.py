@@ -14,9 +14,14 @@ MAX_FACTS_PER_USER = 80
 
 
 def _format_fact(original: str, translation: str | None) -> str:
+    header = "🧠 <b>Кошачий факт</b>"
     if not translation:
-        return f"🇬🇧 {original}\n\n❌ Перевод временно недоступен"
-    return f"🇬🇧 {original}\n\n🇷🇺 {translation}"
+        return (
+            f"{header}\n────────\n"
+            f"🇬🇧 {original}\n\n"
+            "❌ Перевод временно недоступен"
+        )
+    return f"{header}\n────────\n🇬🇧 {original}\n\n🇷🇺 {translation}"
 
 
 async def _show_fact(call: CallbackQuery, facts: list, current_index: int):
