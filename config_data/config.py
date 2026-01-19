@@ -59,6 +59,7 @@ def load_settings() -> Settings:
 
 DEFAULT_COMMANDS = (
     ("start", "Запустить котика-ботика"),
+    ("menu", "Открыть меню"),
     ("help", "Помощь по функциям"),
     ("survey", "Опрос"),
 )

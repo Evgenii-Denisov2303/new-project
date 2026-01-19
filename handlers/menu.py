@@ -35,6 +35,11 @@ async def start_command(message: Message, ui_state):
     await send_or_update_hub(message, WELCOME_TEXT, main_menu_keyboard(), ui_state)
 
 
+@router.message(Command("menu"))
+async def menu_command(message: Message, ui_state):
+    await send_or_update_hub(message, WELCOME_TEXT, main_menu_keyboard(), ui_state)
+
+
 @router.message(Command("help"))
 async def help_command(message: Message, ui_state):
     await send_or_update_hub(message, HELP_TEXT, main_menu_keyboard(), ui_state)
