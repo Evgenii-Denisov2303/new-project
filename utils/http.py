@@ -5,10 +5,10 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-async def request_json(session, method, url, params=None, retries=3, backoff=0.5):
+async def request_json(session, method, url, params=None, retries=3, backoff=0.5, headers=None):
     for attempt in range(retries):
         try:
-            async with session.request(method, url, params=params) as response:
+            async with session.request(method, url, params=params, headers=headers) as response:
                 if response.status == 429 and attempt < retries - 1:
                     retry_after = response.headers.get("Retry-After")
                     try:

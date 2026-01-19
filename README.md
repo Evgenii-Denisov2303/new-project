@@ -21,7 +21,7 @@ CAT_FACTS_API_KEY=https://catfact.ninja/fact
 TRANSLATE_API_KEY=https://translate.googleapis.com/translate_a/single
 ```
 
-> Имена переменных сохранены для совместимости с Railway. По факту это URL эндпоинтов.
+> Имена переменных сохранены для совместимости с Railway. `CAT_API_KEY` можно задать как URL или как API ключ The Cat API.
 
 ### Запуск
 ```bash
