@@ -1,5 +1,7 @@
 import asyncio
 import logging
+import logging.handlers
+import os
 
 import aiohttp
 from aiogram import Bot, Dispatcher
@@ -9,14 +11,27 @@ from config_data.config import load_settings
 from database.db_setup import init_db
 from handlers import get_routers
 from utils.set_bot_commands import set_default_commands
-from utils.cache import TTLCache
+from utils.cache import AsyncCache
 
 
 async def main():
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    log_dir = os.path.join(os.path.dirname(__file__), "logs")
+    os.makedirs(log_dir, exist_ok=True)
+
+    formatter = logging.Formatter(
+        "%(asctime)s level=%(levelname)s name=%(name)s msg=%(message)s"
     )
+    file_handler = logging.handlers.RotatingFileHandler(
+        os.path.join(log_dir, "bot.log"),
+        maxBytes=1_000_000,
+        backupCount=3,
+    )
+    file_handler.setFormatter(formatter)
+
+    stream_handler = logging.StreamHandler()
+    stream_handler.setFormatter(formatter)
+
+    logging.basicConfig(level=logging.INFO, handlers=[file_handler, stream_handler])
 
     settings = load_settings()
     await init_db()
@@ -29,7 +44,8 @@ async def main():
 
     dp["session"] = session
     dp["settings"] = settings
-    dp["cache"] = TTLCache(max_items=512)
+    dp["cache"] = AsyncCache(max_items=512)
+    dp["semaphore"] = asyncio.Semaphore(10)
 
     for router in get_routers():
         dp.include_router(router)

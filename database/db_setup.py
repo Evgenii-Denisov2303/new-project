@@ -21,6 +21,15 @@ async def init_db() -> None:
             )
             """
         )
+        await db.execute(
+            """
+            CREATE TABLE IF NOT EXISTS http_cache (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL,
+                expires_at REAL
+            )
+            """
+        )
         await db.commit()
 
 
@@ -64,5 +73,40 @@ async def update_user_facts(user_id: int, facts: list, current_index: int) -> No
             WHERE user_id = ?
             """,
             (json.dumps(facts), current_index, user_id),
+        )
+        await db.commit()
+
+
+async def get_cache_value(key: str):
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT value, expires_at FROM http_cache WHERE key = ?",
+            (key,),
+        ) as cursor:
+            row = await cursor.fetchone()
+            if not row:
+                return None
+            expires_at = row["expires_at"]
+            if expires_at and expires_at < datetime.datetime.utcnow().timestamp():
+                await db.execute("DELETE FROM http_cache WHERE key = ?", (key,))
+                await db.commit()
+                return None
+            return row["value"]
+
+
+async def set_cache_value(key: str, value: str, ttl: int | None):
+    expires_at = None
+    if ttl:
+        expires_at = datetime.datetime.utcnow().timestamp() + ttl
+
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        await db.execute(
+            """
+            INSERT INTO http_cache (key, value, expires_at)
+            VALUES (?, ?, ?)
+            ON CONFLICT(key) DO UPDATE SET value = excluded.value, expires_at = excluded.expires_at
+            """,
+            (key, value, expires_at),
         )
         await db.commit()

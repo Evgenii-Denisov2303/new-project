@@ -4,6 +4,7 @@ from aiogram.types import CallbackQuery, FSInputFile, InputMediaPhoto
 from config_data.config import CAT_PHOTOS
 from handlers.keyboards import photos_menu_keyboard
 from services.cat_random_image_api import fetch_random_cat_image
+from utils.concurrency import acquire_or_notify
 
 
 router = Router()
@@ -35,8 +36,13 @@ async def photo_scottish(call: CallbackQuery):
 
 
 @router.callback_query(F.data == "photo:random")
-async def photo_random(call: CallbackQuery, session, settings):
-    image_url = await fetch_random_cat_image(session, settings)
+async def photo_random(call: CallbackQuery, session, settings, semaphore):
+    if not await acquire_or_notify(semaphore, call):
+        return
+    try:
+        image_url = await fetch_random_cat_image(session, settings)
+    finally:
+        semaphore.release()
     if image_url:
         await call.message.answer_photo(
             image_url,

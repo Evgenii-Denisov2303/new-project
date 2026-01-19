@@ -6,9 +6,11 @@ from database.db_setup import get_user_facts, update_user_facts
 from handlers.keyboards import facts_nav_keyboard
 from services.cat_fact_api import fetch_cat_fact
 from services.translate_api import translate_text
+from utils.concurrency import acquire_or_notify
 
 
 router = Router()
+MAX_FACTS_PER_USER = 80
 
 
 def _format_fact(original: str, translation: str | None) -> str:
@@ -33,16 +35,21 @@ async def _show_fact(call: CallbackQuery, facts: list, current_index: int):
 
 
 @router.callback_query(F.data == "menu:facts")
-async def menu_facts(call: CallbackQuery, session, settings, cache):
-    fact = await fetch_cat_fact(session, settings, cache)
-    if not fact:
-        await call.message.answer(
-            "Не удалось получить факт. Попробуй чуть позже."
-        )
-        await call.answer()
+async def menu_facts(call: CallbackQuery, session, settings, cache, semaphore):
+    if not await acquire_or_notify(semaphore, call):
         return
+    try:
+        fact = await fetch_cat_fact(session, settings, cache)
+        if not fact:
+            await call.message.answer(
+                "Не удалось получить факт. Попробуй чуть позже."
+            )
+            await call.answer()
+            return
 
-    translation = await translate_text(session, settings, cache, fact)
+        translation = await translate_text(session, settings, cache, fact)
+    finally:
+        semaphore.release()
     display_text = _format_fact(fact, translation)
 
     data = await get_user_facts(call.from_user.id)
@@ -54,6 +61,8 @@ async def menu_facts(call: CallbackQuery, session, settings, cache):
             "display_text": display_text,
         }
     )
+    if len(facts) > MAX_FACTS_PER_USER:
+        facts = facts[-MAX_FACTS_PER_USER:]
     current_index = len(facts) - 1
     await update_user_facts(call.from_user.id, facts, current_index)
 
@@ -62,17 +71,22 @@ async def menu_facts(call: CallbackQuery, session, settings, cache):
 
 
 @router.callback_query(F.data.in_({"facts:new", "facts:prev", "facts:next"}))
-async def facts_nav(call: CallbackQuery, session, settings, cache):
+async def facts_nav(call: CallbackQuery, session, settings, cache, semaphore):
     data = await get_user_facts(call.from_user.id)
     facts = data["facts"]
     current_index = data["current_index"]
 
     if call.data == "facts:new":
-        fact = await fetch_cat_fact(session, settings, cache)
-        if not fact:
-            await call.answer("Не удалось получить факт.", show_alert=True)
+        if not await acquire_or_notify(semaphore, call):
             return
-        translation = await translate_text(session, settings, cache, fact)
+        try:
+            fact = await fetch_cat_fact(session, settings, cache)
+            if not fact:
+                await call.answer("Не удалось получить факт.", show_alert=True)
+                return
+            translation = await translate_text(session, settings, cache, fact)
+        finally:
+            semaphore.release()
         display_text = _format_fact(fact, translation)
         facts.append(
             {
@@ -81,6 +95,8 @@ async def facts_nav(call: CallbackQuery, session, settings, cache):
                 "display_text": display_text,
             }
         )
+        if len(facts) > MAX_FACTS_PER_USER:
+            facts = facts[-MAX_FACTS_PER_USER:]
         current_index = len(facts) - 1
     elif call.data == "facts:prev" and current_index > 0:
         current_index -= 1
