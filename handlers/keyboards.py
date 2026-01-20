@@ -108,7 +108,11 @@ def back_to_menu_keyboard() -> InlineKeyboardMarkup:
 
 def bottom_menu_keyboard() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
-        keyboard=[[KeyboardButton(text="Меню")]],
+        keyboard=[
+            [KeyboardButton(text="Фото"), KeyboardButton(text="Факты")],
+            [KeyboardButton(text="Настроение"), KeyboardButton(text="Уход")],
+            [KeyboardButton(text="Оценить"), KeyboardButton(text="Помощь")],
+        ],
         resize_keyboard=True,
         selective=False,
     )

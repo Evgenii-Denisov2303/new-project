@@ -7,6 +7,7 @@ from handlers.keyboards import (
     fun_menu_keyboard,
     useful_menu_keyboard,
     bottom_menu_keyboard,
+    survey_keyboard,
 )
 from handlers.ui import edit_or_send, send_or_update_hub
 
@@ -34,10 +35,7 @@ HELP_TEXT = (
 async def _ensure_bottom_menu(message: Message, reply_menu_users: set):
     if message.from_user.id in reply_menu_users:
         return
-    await message.answer(
-        "Кнопка «Меню» закреплена снизу.",
-        reply_markup=bottom_menu_keyboard(),
-    )
+    await message.answer("Меню закреплено снизу.", reply_markup=bottom_menu_keyboard())
     reply_menu_users.add(message.from_user.id)
 
 
@@ -59,10 +57,54 @@ async def help_command(message: Message, ui_state, reply_menu_users):
     await send_or_update_hub(message, HELP_TEXT, main_menu_keyboard(), ui_state)
 
 
-@router.message(F.text == "Меню")
-async def menu_button(message: Message, ui_state, reply_menu_users):
+@router.message(F.text == "Фото")
+async def menu_photos_button(message: Message, ui_state, reply_menu_users):
     await _ensure_bottom_menu(message, reply_menu_users)
-    await send_or_update_hub(message, WELCOME_TEXT, main_menu_keyboard(), ui_state)
+    await send_or_update_hub(
+        message,
+        "📸 <b>Фото котиков</b>\nВыбери любимчика или нажми случайный кадр.\n────────",
+        photos_menu_keyboard(),
+        ui_state,
+    )
+
+
+@router.message(F.text == "Настроение")
+async def menu_fun_button(message: Message, ui_state, reply_menu_users):
+    await _ensure_bottom_menu(message, reply_menu_users)
+    await send_or_update_hub(
+        message,
+        "✨ <b>Настроение</b>\nХочешь комплимент, гороскоп или игру?\n────────",
+        fun_menu_keyboard(),
+        ui_state,
+    )
+
+
+@router.message(F.text == "Уход")
+async def menu_useful_button(message: Message, ui_state, reply_menu_users):
+    await _ensure_bottom_menu(message, reply_menu_users)
+    await send_or_update_hub(
+        message,
+        "🧼 <b>Уход за котиками</b>\nКороткий, добрый совет.\n────────",
+        useful_menu_keyboard(),
+        ui_state,
+    )
+
+
+@router.message(F.text == "Оценить")
+async def menu_survey_button(message: Message, ui_state, reply_menu_users):
+    await _ensure_bottom_menu(message, reply_menu_users)
+    await send_or_update_hub(
+        message,
+        "⭐ <b>Оценка</b>\n────────\nОцени бота или оставь отзыв.",
+        survey_keyboard(),
+        ui_state,
+    )
+
+
+@router.message(F.text == "Помощь")
+async def menu_help_button(message: Message, ui_state, reply_menu_users):
+    await _ensure_bottom_menu(message, reply_menu_users)
+    await send_or_update_hub(message, HELP_TEXT, main_menu_keyboard(), ui_state)
 
 
 @router.message()
