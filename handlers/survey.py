@@ -23,7 +23,7 @@ async def survey_command(message: Message, ui_state):
         message,
         "⭐ <b>Оценка</b>\n────────\nОцени бота или оставь отзыв.",
         survey_keyboard(),
-        ui_state,
+        ui_state, repost=True
     )
 
 
