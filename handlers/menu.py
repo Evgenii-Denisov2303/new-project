@@ -1,6 +1,7 @@
 from aiogram import Router, F
 from aiogram.filters import CommandStart, Command
 from aiogram.types import Message, CallbackQuery
+
 from handlers.keyboards import (
     photos_menu_keyboard,
     fun_menu_keyboard,
@@ -12,7 +13,6 @@ from handlers.ui import send_or_update_hub
 
 
 router = Router()
-
 
 WELCOME_TEXT = (
     "🐾 <b>Котик-ботик</b>\n"
@@ -31,15 +31,175 @@ HELP_TEXT = (
 )
 
 
-def _ensure_bottom_menu(message: Message, reply_menu_users: set):
-    if message.from_user.id in reply_menu_users:
-        return None
-    reply_menu_users.add(message.from_user.id)
+def _ensure_bottom_menu(_message: Message, _reply_menu_users: set):
+    # Показываем нижнее меню надежно (не «один раз на всю жизнь процесса»),
+    # иначе после скрытия клавиатуры у пользователя она может больше не появиться.
     return bottom_menu_keyboard()
 
 
 @router.message(CommandStart())
 async def start_command(message: Message, ui_state, reply_menu_users):
+    reply_keyboard = _ensure_bottom_menu(message, reply_menu_users)
+    await send_or_update_hub(
+        message,
+        WELCOME_TEXT,
+        None,
+        ui_state,
+        reply_keyboard=reply_keyboard,
+        repost=True,
+    )
+
+
+@router.message(Command("menu"))
+async def menu_command(message: Message, ui_state, reply_menu_users):
+    reply_keyboard = _ensure_bottom_menu(message, reply_menu_users)
+    await send_or_update_hub(
+        message,
+        WELCOME_TEXT,
+        None,
+        ui_state,
+        reply_keyboard=reply_keyboard,
+        repost=True,
+    )
+
+
+@router.message(Command("help"))
+async def help_command(message: Message, ui_state, reply_menu_users):
+    reply_keyboard = _ensure_bottom_menu(message, reply_menu_users)
+    await send_or_update_hub(
+        message,
+        HELP_TEXT,
+        None,
+        ui_state,
+        reply_keyboard=reply_keyboard,
+        repost=True,
+    )
+
+
+@router.message(F.text == "Фото")
+async def menu_photos_button(message: Message, ui_state, reply_menu_users):
+    reply_keyboard = _ensure_bottom_menu(message, reply_menu_users)
+    await send_or_update_hub(
+        message,
+        "📸 <b>Фото котиков</b>\nВыбери любимчика или нажми случайный кадр.\n────────",
+        photos_menu_keyboard(),
+        ui_state,
+        reply_keyboard=reply_keyboard,
+        repost=True,
+    )
+
+
+@router.message(F.text == "Настроение")
+async def menu_fun_button(message: Message, ui_state, reply_menu_users):
+    reply_keyboard = _ensure_bottom_menu(message, reply_menu_users)
+    await send_or_update_hub(
+        message,
+        "✨ <b>Настроение</b>\nХочешь комплимент, гороскоп или игру?\n────────",
+        fun_menu_keyboard(),
+        ui_state,
+        reply_keyboard=reply_keyboard,
+        repost=True,
+    )
+
+
+@router.message(F.text == "Уход")
+async def menu_useful_button(message: Message, ui_state, reply_menu_users):
+    reply_keyboard = _ensure_bottom_menu(message, reply_menu_users)
+    await send_or_update_hub(
+        message,
+        "🧼 <b>Уход за котиками</b>\nКороткий, добрый совет.\n────────",
+        useful_menu_keyboard(),
+        ui_state,
+        reply_keyboard=reply_keyboard,
+        repost=True,
+    )
+
+
+@router.message(F.text == "Оценить")
+async def menu_survey_button(message: Message, ui_state, reply_menu_users):
+    reply_keyboard = _ensure_bottom_menu(message, reply_menu_users)
+    await send_or_update_hub(
+        message,
+        "⭐ <b>Оценка</b>\n────────\nОцени бота или оставь отзыв.",
+        survey_keyboard(),
+        ui_state,
+        reply_keyboard=reply_keyboard,
+        repost=True,
+    )
+
+
+@router.message(F.text == "Помощь")
+async def menu_help_button(message: Message, ui_state, reply_menu_users):
+    reply_keyboard = _ensure_bottom_menu(message, reply_menu_users)
+    await send_or_update_hub(
+        message,
+        HELP_TEXT,
+        None,
+        ui_state,
+        reply_keyboard=reply_keyboard,
+        repost=True,
+    )
+
+
+@router.message()
+async def fallback_message(message: Message, ui_state, reply_menu_users):
+    reply_keyboard = _ensure_bottom_menu(message, reply_menu_users)
+    await send_or_update_hub(
+        message,
+        "Я тут, но лучше выбрать раздел в меню 🙂",
+        None,
+        ui_state,
+        reply_keyboard=reply_keyboard,
+        repost=True,
+    )
+
+
+@router.callback_query(F.data == "menu:main")
+async def menu_main(call: CallbackQuery, ui_state):
+    await send_or_update_hub(call.message, WELCOME_TEXT, None, ui_state, repost=True)
+    await call.answer()
+
+
+@router.callback_query(F.data == "menu:help")
+async def menu_help(call: CallbackQuery, ui_state):
+    await send_or_update_hub(call.message, HELP_TEXT, None, ui_state, repost=True)
+    await call.answer()
+
+
+@router.callback_query(F.data == "menu:photos")
+async def menu_photos(call: CallbackQuery, ui_state):
+    await send_or_update_hub(
+        call.message,
+        "📸 <b>Фото котиков</b>\nВыбери любимчика или нажми случайный кадр.\n────────",
+        photos_menu_keyboard(),
+        ui_state,
+        repost=True,
+    )
+    await call.answer()
+
+
+@router.callback_query(F.data == "menu:fun")
+async def menu_fun(call: CallbackQuery, ui_state):
+    await send_or_update_hub(
+        call.message,
+        "✨ <b>Настроение</b>\nХочешь комплимент, гороскоп или игру?\n────────",
+        fun_menu_keyboard(),
+        ui_state,
+        repost=True,
+    )
+    await call.answer()
+
+
+@router.callback_query(F.data == "menu:useful")
+async def menu_useful(call: CallbackQuery, ui_state):
+    await send_or_update_hub(
+        call.message,
+        "🧼 <b>Уход за котиками</b>\nКороткий, добрый совет.\n────────",
+        useful_menu_keyboard(),
+        ui_state,
+        repost=True,
+    )
+    await call.answer()
     reply_keyboard = _ensure_bottom_menu(message, reply_menu_users)
     await send_or_update_hub(message, WELCOME_TEXT, None, ui_state, reply_keyboard=reply_keyboard, repost=True)
 
