@@ -138,3 +138,11 @@ async def fallback(message: Message):
     # На любое непонятное сообщение — возвращаем клавиатуру
     await _show_reply_menu(message)
     await message.answer("Нажми кнопки снизу 👇 или напиши /menu")
+
+@router.message()
+async def catch_all_text(message: Message):
+    # Гарантированно возвращаем клавиатуру
+    await message.answer(
+        "Нажми кнопки снизу 👇 или напиши /menu",
+        reply_markup=bottom_menu_keyboard(),
+    )
