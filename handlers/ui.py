@@ -1,4 +1,21 @@
 from aiogram.exceptions import TelegramBadRequest
+from aiogram.types import ReplyKeyboardMarkup
+
+async def send_or_update_hub(
+    message,
+    text,
+    inline_keyboard,
+    ui_state,
+    repost=False,
+    reply_keyboard: ReplyKeyboardMarkup | None = None,
+):
+    # ✅ ВСЕГДА "будим" нижнюю клавиатуру отдельным sendMessage,
+    # потому что editMessageText не умеет выставлять ReplyKeyboard.
+    if reply_keyboard is not None:
+        try:
+            await message.answer("\u200b", reply_markup=reply_keyboard)  # zero-width space
+        except Exception:
+            pass
 
 
 async def send_or_update_hub(
