@@ -3,8 +3,7 @@ import logging
 import os
 from contextlib import suppress
 
-import aiohttp
-from aiohttp import web
+from aiohttp import web, ClientSession, ClientTimeout
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.fsm.storage.memory import MemoryStorage
@@ -16,28 +15,28 @@ from utils.cache import AsyncCache
 from utils.set_bot_commands import set_default_commands
 
 
-def _setup_logging() -> None:
-    # Railway лучше всего читает stdout/stderr
-    level = os.getenv("LOG_LEVEL", "INFO").upper()
-    logging.basicConfig(
-        level=level,
-        format="%(asctime)s level=%(levelname)s name=%(name)s msg=%(message)s",
-    )
+# ---------------- LOGGING ----------------
+logging.basicConfig(
+    level=os.getenv("LOG_LEVEL", "INFO"),
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+)
+logger = logging.getLogger(__name__)
 
 
-async def _start_healthcheck_server() -> web.AppRunner:
+# ---------------- HEALTHCHECK SERVER ----------------
+async def start_health_server() -> web.AppRunner:
     """
-    Railway healthcheck: GET / должен отвечать 200.
-    Важно: слушаем 0.0.0.0 и порт из переменной PORT.
+    Railway healthcheck:
+    GET / -> 200 OK
+    GET /ping -> 200 OK
     """
     port = int(os.getenv("PORT", "8080"))
-
     app = web.Application()
 
-    async def root(_request: web.Request) -> web.Response:
+    async def root(_request):
         return web.Response(text="ok")
 
-    async def ping(_request: web.Request) -> web.Response:
+    async def ping(_request):
         return web.json_response({"status": "ok"})
 
     app.router.add_get("/", root)
@@ -48,41 +47,34 @@ async def _start_healthcheck_server() -> web.AppRunner:
     site = web.TCPSite(runner, host="0.0.0.0", port=port)
     await site.start()
 
-    logging.getLogger(__name__).info("Healthcheck server listening on 0.0.0.0:%s", port)
+    logger.info("Healthcheck server started on 0.0.0.0:%s", port)
     return runner
 
 
-async def main() -> None:
-    _setup_logging()
-    log = logging.getLogger(__name__)
+# ---------------- MAIN ----------------
+async def main():
+    health_runner = None
+    session = None
 
-    # 1) СНАЧАЛА healthcheck, чтобы Railway не валил деплой
-    health_runner: web.AppRunner | None = None
     try:
-        health_runner = await _start_healthcheck_server()
-    except Exception:
-        # Даже если health не смог стартануть — лучше увидеть причину в логах
-        log.exception("Failed to start healthcheck server")
-        raise
+        # 1) START HEALTH SERVER FIRST (CRITICAL FOR RAILWAY)
+        health_runner = await start_health_server()
 
-    session: aiohttp.ClientSession | None = None
-    try:
-        # 2) Настройки/БД
+        # 2) LOAD SETTINGS / DB
         settings = load_settings()
         await init_db()
 
-        # 3) HTTP session для API
-        timeout = aiohttp.ClientTimeout(total=10)
-        session = aiohttp.ClientSession(timeout=timeout)
+        # 3) HTTP SESSION
+        session = ClientSession(timeout=ClientTimeout(total=10))
 
-        # 4) Bot + Dispatcher
+        # 4) BOT + DISPATCHER
         bot = Bot(
             token=settings.bot_token,
             default=DefaultBotProperties(parse_mode="HTML"),
         )
         dp = Dispatcher(storage=MemoryStorage())
 
-        # 5) DI (как у тебя)
+        # 5) DEPENDENCIES
         dp["session"] = session
         dp["settings"] = settings
         dp["cache"] = AsyncCache(max_items=512)
@@ -95,16 +87,19 @@ async def main() -> None:
 
         await set_default_commands(bot)
 
-        log.info("Bot started polling...")
+        logger.info("Bot started polling")
         await dp.start_polling(bot)
 
+    except Exception:
+        logger.exception("Fatal error during startup")
+        raise
+
     finally:
-        # cleanup
-        if session is not None:
+        if session:
             with suppress(Exception):
                 await session.close()
 
-        if health_runner is not None:
+        if health_runner:
             with suppress(Exception):
                 await health_runner.cleanup()
 
