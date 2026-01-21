@@ -20,7 +20,7 @@ logging.basicConfig(
     level=os.getenv("LOG_LEVEL", "INFO"),
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
 )
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("bot")
 
 
 # ---------------- HEALTHCHECK SERVER ----------------
@@ -53,8 +53,8 @@ async def start_health_server() -> web.AppRunner:
 
 # ---------------- MAIN ----------------
 async def main():
-    health_runner = None
-    session = None
+    health_runner: web.AppRunner | None = None
+    session: ClientSession | None = None
 
     try:
         # 1) START HEALTH SERVER FIRST (CRITICAL FOR RAILWAY)
@@ -64,8 +64,8 @@ async def main():
         settings = load_settings()
         await init_db()
 
-        # 3) HTTP SESSION
-        session = ClientSession(timeout=ClientTimeout(total=10))
+        # 3) HTTP SESSION (делаем побольше таймаут — сети бывают медленные)
+        session = ClientSession(timeout=ClientTimeout(total=20))
 
         # 4) BOT + DISPATCHER
         bot = Bot(
@@ -74,13 +74,16 @@ async def main():
         )
         dp = Dispatcher(storage=MemoryStorage())
 
-        # 5) DEPENDENCIES
+        # 5) DEPENDENCIES (общие для всех хендлеров)
         dp["session"] = session
         dp["settings"] = settings
         dp["cache"] = AsyncCache(max_items=512)
         dp["semaphore"] = asyncio.Semaphore(10)
-        dp["ui_state"] = {}
-        dp["reply_menu_users"] = set()
+
+        # ui_state лучше хранить по пользователям (чтобы не мешали друг другу)
+        dp["ui_state"] = {}  # {user_id: {...}}
+
+        # ⛔ reply_menu_users больше не нужен (он ломал повторный показ меню)
 
         for router in get_routers():
             dp.include_router(router)
