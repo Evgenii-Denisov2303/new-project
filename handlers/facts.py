@@ -8,35 +8,23 @@ from handlers.ui import send_or_update_hub
 from services.cat_fact_api import fetch_cat_fact
 from services.translate_api import translate_text
 from utils.concurrency import acquire_or_notify
+from utils.i18n import t, resolve_user_lang, text_variants
 
 
 router = Router()
 
 MAX_FACTS_PER_USER = 80
 
-FACTS_HUB_TEXT = (
-    "📚 <b>Факты</b>\n"
-    "Нажимай «Новый», чтобы получать факты.\n"
-    "────────"
-)
-
-
 # ---------- helpers ----------
 
-def _format_fact(original: str, translation: str | None) -> str:
+def _format_fact(original: str, translation: str | None, lang: str) -> str:
+    title = t(lang, "facts.title")
+    if lang == "en":
+        return f"{title}\n{original}"
     if not translation:
-        return (
-            "🧠 <b>Кошачий факт</b>\n"
-            "────────\n"
-            f"🇬🇧 {original}\n\n"
-            "❌ Перевод недоступен"
-        )
-    return (
-        "🧠 <b>Кошачий факт</b>\n"
-        "────────\n"
-        f"🇬🇧 {original}\n\n"
-        f"🇷🇺 {translation}"
-    )
+        return f"{title}\n🇬🇧 {original}\n\n{t(lang, 'facts.no_translation')}"
+    flag = "🇷🇺" if lang == "ru" else "🇨🇿"
+    return f"{title}\n🇬🇧 {original}\n\n{flag} {translation}"
 
 
 async def _send_fact_and_menu(
@@ -44,6 +32,7 @@ async def _send_fact_and_menu(
     facts: list,
     index: int,
     ui_state,
+    lang: str,
 ):
     fact_data = facts[index]
     text = fact_data["display_text"]
@@ -54,10 +43,11 @@ async def _send_fact_and_menu(
     # 2) хаб/меню фактов — тоже вниз
     await send_or_update_hub(
         message,
-        FACTS_HUB_TEXT,
+        t(lang, "facts.hub"),
         facts_nav_keyboard(
             has_prev=index > 0,
             has_next=index < len(facts) - 1,
+            lang=lang,
         ),
         ui_state,
         repost=True,
@@ -75,21 +65,24 @@ async def menu_facts(
     semaphore,
     ui_state,
 ):
-    if not await acquire_or_notify(semaphore, call):
+    lang = await resolve_user_lang(call.from_user.id, call.from_user.language_code)
+    if not await acquire_or_notify(semaphore, call, lang):
         return
 
     try:
         fact = await fetch_cat_fact(session, settings, cache)
         if not fact:
-            await call.answer("Не удалось получить факт.", show_alert=True)
+            await call.answer(t(lang, "facts.fetch_error"), show_alert=True)
             return
 
-        translation = await translate_text(session, settings, cache, fact)
+        translation = None
+        if lang in ("ru", "cs"):
+            translation = await translate_text(session, settings, cache, fact, target_language=lang)
 
     finally:
         semaphore.release()
 
-    display_text = _format_fact(fact, translation)
+    display_text = _format_fact(fact, translation, lang)
 
     data = await get_user_facts(call.from_user.id)
     facts = data["facts"]
@@ -108,13 +101,13 @@ async def menu_facts(
     index = len(facts) - 1
 
     await update_user_facts(call.from_user.id, facts, index)
-    await _send_fact_and_menu(call.message, facts, index, ui_state)
+    await _send_fact_and_menu(call.message, facts, index, ui_state, lang)
     await call.answer()
 
 
 # ---------- reply keyboard entry ----------
 
-@router.message(F.text == "Факты")
+@router.message(F.text.in_(text_variants("btn.facts")))
 async def menu_facts_message(
     message: Message,
     session,
@@ -123,24 +116,27 @@ async def menu_facts_message(
     semaphore,
     ui_state,
 ):
+    lang = await resolve_user_lang(message.from_user.id, message.from_user.language_code)
     try:
         await asyncio.wait_for(semaphore.acquire(), timeout=0.2)
     except asyncio.TimeoutError:
-        await message.answer("Я чуть занят 😺 Попробуй снова.")
+        await message.answer(t(lang, "facts.busy"))
         return
 
     try:
         fact = await fetch_cat_fact(session, settings, cache)
         if not fact:
-            await message.answer("Не удалось получить факт.")
+            await message.answer(t(lang, "facts.fetch_error"))
             return
 
-        translation = await translate_text(session, settings, cache, fact)
+        translation = None
+        if lang in ("ru", "cs"):
+            translation = await translate_text(session, settings, cache, fact, target_language=lang)
 
     finally:
         semaphore.release()
 
-    display_text = _format_fact(fact, translation)
+    display_text = _format_fact(fact, translation, lang)
 
     data = await get_user_facts(message.from_user.id)
     facts = data["facts"]
@@ -159,7 +155,7 @@ async def menu_facts_message(
     index = len(facts) - 1
 
     await update_user_facts(message.from_user.id, facts, index)
-    await _send_fact_and_menu(message, facts, index, ui_state)
+    await _send_fact_and_menu(message, facts, index, ui_state, lang)
 
 
 # ---------- navigation ----------
@@ -173,26 +169,29 @@ async def facts_nav(
     semaphore,
     ui_state,
 ):
+    lang = await resolve_user_lang(call.from_user.id, call.from_user.language_code)
     data = await get_user_facts(call.from_user.id)
     facts = data["facts"]
     index = data["current_index"]
 
     if call.data == "facts:new":
-        if not await acquire_or_notify(semaphore, call):
+        if not await acquire_or_notify(semaphore, call, lang):
             return
 
         try:
             fact = await fetch_cat_fact(session, settings, cache)
             if not fact:
-                await call.answer("Не удалось получить факт.", show_alert=True)
+                await call.answer(t(lang, "facts.fetch_error"), show_alert=True)
                 return
 
-            translation = await translate_text(session, settings, cache, fact)
+            translation = None
+            if lang in ("ru", "cs"):
+                translation = await translate_text(session, settings, cache, fact, target_language=lang)
 
         finally:
             semaphore.release()
 
-        display_text = _format_fact(fact, translation)
+        display_text = _format_fact(fact, translation, lang)
 
         facts.append(
             {
@@ -214,10 +213,10 @@ async def facts_nav(
         index += 1
 
     if not facts:
-        await call.message.answer("Фактов пока нет. Нажми «Новый».")
+        await call.message.answer(t(lang, "facts.none"))
         await call.answer()
         return
 
     await update_user_facts(call.from_user.id, facts, index)
-    await _send_fact_and_menu(call.message, facts, index, ui_state)
+    await _send_fact_and_menu(call.message, facts, index, ui_state, lang)
     await call.answer()

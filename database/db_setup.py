@@ -23,6 +23,15 @@ async def init_db() -> None:
         )
         await db.execute(
             """
+            CREATE TABLE IF NOT EXISTS user_settings (
+                user_id INTEGER PRIMARY KEY,
+                language TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+            """
+        )
+        await db.execute(
+            """
             CREATE TABLE IF NOT EXISTS http_cache (
                 key TEXT PRIMARY KEY,
                 value TEXT NOT NULL,
@@ -108,5 +117,33 @@ async def set_cache_value(key: str, value: str, ttl: int | None):
             ON CONFLICT(key) DO UPDATE SET value = excluded.value, expires_at = excluded.expires_at
             """,
             (key, value, expires_at),
+        )
+        await db.commit()
+
+
+async def get_user_language(user_id: int) -> str | None:
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT language FROM user_settings WHERE user_id = ?",
+            (user_id,),
+        ) as cursor:
+            row = await cursor.fetchone()
+            if not row:
+                return None
+            return row["language"]
+
+
+async def set_user_language(user_id: int, language: str) -> None:
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        await db.execute(
+            """
+            INSERT INTO user_settings (user_id, language, updated_at)
+            VALUES (?, ?, ?)
+            ON CONFLICT(user_id) DO UPDATE SET
+                language = excluded.language,
+                updated_at = excluded.updated_at
+            """,
+            (user_id, language, datetime.datetime.utcnow().isoformat()),
         )
         await db.commit()

@@ -8,109 +8,119 @@ from handlers.keyboards import (
     fun_menu_keyboard,
     useful_menu_keyboard,
     survey_keyboard,
+    language_keyboard,
 )
 from handlers.ui import send_or_update_hub
+from utils.i18n import t, resolve_user_lang, text_variants
+from database.db_setup import set_user_language
 
 router = Router()
 
-WELCOME_TEXT = (
-    "🐾🐾 <b>Котик-ботик</b>\n"
-    "Выбери раздел кнопками снизу 👇\n"
-    "────────"
-)
 
-HELP_TEXT = (
-    "ℹ️ <b>Помощь</b>\n"
-    "• Нажимай кнопки снизу (Фото/Настроение/Факты/Уход)\n"
-    "• Внутри разделов используй кнопки под сообщениями\n"
-    "• Если клавиатура пропала — напиши /menu\n"
-    "────────"
-)
-
-
-async def _show_reply_menu(message: Message) -> None:
+async def _show_reply_menu(message: Message, lang: str) -> None:
     """
     Гарантированно показывает ReplyKeyboard.
     Важно: только sendMessage реально “включает” ReplyKeyboard,
     editMessageText этого не делает.
     """
-    await message.answer("Выбери раздел ниже 👇", reply_markup=bottom_menu_keyboard())
+    await message.answer(t(lang, "menu.choose_below"), reply_markup=bottom_menu_keyboard(lang))
 
 
 # ---------------- Commands ----------------
 
 @router.message(CommandStart())
 async def cmd_start(message: Message, ui_state):
-    await _show_reply_menu(message)
-    await send_or_update_hub(message, WELCOME_TEXT, None, ui_state, repost=True)
+    lang = await resolve_user_lang(message.from_user.id, message.from_user.language_code)
+    await _show_reply_menu(message, lang)
+    await send_or_update_hub(message, t(lang, "menu.welcome"), None, ui_state, repost=True)
 
 
 @router.message(Command("menu"))
 async def cmd_menu(message: Message, ui_state):
-    await _show_reply_menu(message)
-    await send_or_update_hub(message, WELCOME_TEXT, None, ui_state, repost=True)
+    lang = await resolve_user_lang(message.from_user.id, message.from_user.language_code)
+    await _show_reply_menu(message, lang)
+    await send_or_update_hub(message, t(lang, "menu.welcome"), None, ui_state, repost=True)
 
 
 @router.message(Command("help"))
 async def cmd_help(message: Message, ui_state):
-    await _show_reply_menu(message)
-    await send_or_update_hub(message, HELP_TEXT, None, ui_state, repost=True)
+    lang = await resolve_user_lang(message.from_user.id, message.from_user.language_code)
+    await _show_reply_menu(message, lang)
+    await send_or_update_hub(message, t(lang, "menu.help"), None, ui_state, repost=True)
 
 
 # ---------------- ReplyKeyboard buttons ----------------
 
-@router.message(F.text == "Фото")
+@router.message(F.text.in_(text_variants("btn.photos")))
 async def btn_photos(message: Message, ui_state):
-    await _show_reply_menu(message)
+    lang = await resolve_user_lang(message.from_user.id, message.from_user.language_code)
+    await _show_reply_menu(message, lang)
     await send_or_update_hub(
         message,
-        "📸 <b>Фото котиков</b>\nВыбери котика или нажми 🎲 случайный.\n────────",
-        photos_menu_keyboard(),
+        t(lang, "menu.photos"),
+        photos_menu_keyboard(lang),
         ui_state,
         repost=True,
     )
 
 
-@router.message(F.text == "Настроение")
+@router.message(F.text.in_(text_variants("btn.fun")))
 async def btn_fun(message: Message, ui_state):
-    await _show_reply_menu(message)
+    lang = await resolve_user_lang(message.from_user.id, message.from_user.language_code)
+    await _show_reply_menu(message, lang)
     await send_or_update_hub(
         message,
-        "✨ <b>Настроение</b>\nГороскоп, комплимент или мини-игра.\n────────",
-        fun_menu_keyboard(),
+        t(lang, "menu.fun"),
+        fun_menu_keyboard(lang),
         ui_state,
         repost=True,
     )
 
 
-@router.message(F.text == "Уход")
+@router.message(F.text.in_(text_variants("btn.useful")))
 async def btn_useful(message: Message, ui_state):
-    await _show_reply_menu(message)
+    lang = await resolve_user_lang(message.from_user.id, message.from_user.language_code)
+    await _show_reply_menu(message, lang)
     await send_or_update_hub(
         message,
-        "😽 <b>Уход</b>\nСоветы по котикам.\n────────",
-        useful_menu_keyboard(),
+        t(lang, "menu.useful"),
+        useful_menu_keyboard(lang),
         ui_state,
         repost=True,
     )
 
 
-@router.message(F.text == "Оценить")
+@router.message(F.text.in_(text_variants("btn.rate")))
 async def btn_survey(message: Message, ui_state):
-    await _show_reply_menu(message)
+    lang = await resolve_user_lang(message.from_user.id, message.from_user.language_code)
+    await _show_reply_menu(message, lang)
     await send_or_update_hub(
         message,
-        "⭐ <b>Оценить бота</b>\nВыбери действие.\n────────",
-        survey_keyboard(),
+        t(lang, "menu.survey"),
+        survey_keyboard(lang),
         ui_state,
         repost=True,
     )
 
 
-@router.message(F.text == "Помощь")
+@router.message(F.text.in_(text_variants("btn.help")))
 async def btn_help(message: Message, ui_state):
-    await _show_reply_menu(message)
-    await send_or_update_hub(message, HELP_TEXT, None, ui_state, repost=True)
+    lang = await resolve_user_lang(message.from_user.id, message.from_user.language_code)
+    await _show_reply_menu(message, lang)
+    await send_or_update_hub(message, t(lang, "menu.help"), None, ui_state, repost=True)
+
+
+@router.message(F.text.in_(text_variants("btn.language")))
+async def btn_language(message: Message, ui_state):
+    lang = await resolve_user_lang(message.from_user.id, message.from_user.language_code)
+    await _show_reply_menu(message, lang)
+    await send_or_update_hub(
+        message,
+        t(lang, "lang.choose"),
+        language_keyboard(lang),
+        ui_state,
+        repost=True,
+    )
 
 
 # ---------------- Inline callbacks (кнопка ⬅️ В меню) ----------------
@@ -119,16 +129,18 @@ async def btn_help(message: Message, ui_state):
 async def cb_menu_main(call: CallbackQuery, ui_state):
     # reply keyboard из callback не ставится — это нормально.
     # Пользователь всегда может вернуть клавиатуру командой /menu
-    await send_or_update_hub(call.message, WELCOME_TEXT, None, ui_state, repost=True)
+    lang = await resolve_user_lang(call.from_user.id, call.from_user.language_code)
+    await send_or_update_hub(call.message, t(lang, "menu.welcome"), None, ui_state, repost=True)
     await call.answer()
 
 
 @router.callback_query(F.data == "menu:photos")
 async def cb_menu_photos(call: CallbackQuery, ui_state):
+    lang = await resolve_user_lang(call.from_user.id, call.from_user.language_code)
     await send_or_update_hub(
         call.message,
-        "📸 <b>Фото котиков</b>\nВыбери котика или нажми 🎲 случайный.\n────────",
-        photos_menu_keyboard(),
+        t(lang, "menu.photos"),
+        photos_menu_keyboard(lang),
         ui_state,
         repost=True,
     )
@@ -137,10 +149,11 @@ async def cb_menu_photos(call: CallbackQuery, ui_state):
 
 @router.callback_query(F.data == "menu:fun")
 async def cb_menu_fun(call: CallbackQuery, ui_state):
+    lang = await resolve_user_lang(call.from_user.id, call.from_user.language_code)
     await send_or_update_hub(
         call.message,
-        "✨ <b>Настроение</b>\nГороскоп, комплимент или мини-игра.\n────────",
-        fun_menu_keyboard(),
+        t(lang, "menu.fun"),
+        fun_menu_keyboard(lang),
         ui_state,
         repost=True,
     )
@@ -149,20 +162,31 @@ async def cb_menu_fun(call: CallbackQuery, ui_state):
 
 @router.callback_query(F.data == "menu:useful")
 async def cb_menu_useful(call: CallbackQuery, ui_state):
+    lang = await resolve_user_lang(call.from_user.id, call.from_user.language_code)
     await send_or_update_hub(
         call.message,
-        "😽 <b>Уход</b>\nСоветы по котикам.\n────────",
-        useful_menu_keyboard(),
+        t(lang, "menu.useful"),
+        useful_menu_keyboard(lang),
         ui_state,
         repost=True,
     )
     await call.answer()
 
 
+@router.callback_query(F.data.startswith("lang:set:"))
+async def cb_set_language(call: CallbackQuery, ui_state):
+    lang = call.data.split(":")[-1]
+    await set_user_language(call.from_user.id, lang)
+    await _show_reply_menu(call.message, lang)
+    await send_or_update_hub(call.message, t(lang, "menu.welcome"), None, ui_state, repost=True)
+    await call.answer(t(lang, "lang.updated"))
+
+
 # ---------------- Fallback ----------------
 
-@router.message(~F.text.in_({"Фото", "Настроение", "Факты", "Уход", "Помощь", "Оценить"}))
+@router.message(~F.text.in_(text_variants("btn.photos") + text_variants("btn.fun") + text_variants("btn.facts") + text_variants("btn.useful") + text_variants("btn.help") + text_variants("btn.rate") + text_variants("btn.language")))
 async def fallback(message: Message):
     # На любое непонятное сообщение — возвращаем клавиатуру
-    await _show_reply_menu(message)
-    await message.answer("Нажми кнопки снизу 👇 или напиши /menu")
+    lang = await resolve_user_lang(message.from_user.id, message.from_user.language_code)
+    await _show_reply_menu(message, lang)
+    await message.answer(t(lang, "menu.fallback"))
