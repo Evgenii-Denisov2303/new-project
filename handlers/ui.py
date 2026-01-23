@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from aiogram.exceptions import TelegramBadRequest
+from contextlib import suppress
 from aiogram.types import ReplyKeyboardMarkup, InlineKeyboardMarkup
 
 
@@ -39,7 +40,9 @@ async def send_or_update_hub(
     # 1) Wake ReplyKeyboard reliably (only sendMessage can show it)
     if reply_keyboard is not None:
         try:
-            await message.answer(" ", reply_markup=reply_keyboard)
+            sent = await message.answer("Меню обновлено", reply_markup=reply_keyboard)
+            with suppress(Exception):
+                await message.bot.delete_message(chat_id=chat_id, message_id=sent.message_id)
         except Exception:
             pass
 

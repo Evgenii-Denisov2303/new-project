@@ -1,4 +1,5 @@
 from aiogram import Router, F
+from contextlib import suppress
 from aiogram.filters import CommandStart, Command
 from aiogram.types import Message, CallbackQuery
 
@@ -34,7 +35,9 @@ async def _show_reply_menu(message: Message) -> None:
     Важно: только sendMessage реально “включает” ReplyKeyboard,
     editMessageText этого не делает.
     """
-    await message.answer(" ", reply_markup=bottom_menu_keyboard())
+    sent = await message.answer("Меню обновлено", reply_markup=bottom_menu_keyboard())
+    with suppress(Exception):
+        await message.bot.delete_message(chat_id=message.chat.id, message_id=sent.message_id)
 
 
 # ---------------- Commands ----------------
