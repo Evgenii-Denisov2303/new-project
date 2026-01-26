@@ -9,8 +9,7 @@ def photos_menu_keyboard(lang: str = "ru") -> InlineKeyboardMarkup:
     builder.button(text="Цезарь", callback_data="photo:cezar")
     builder.button(text="Шотландец", callback_data="photo:scottish")
     builder.button(text=t(lang, "btn.random"), callback_data="photo:random")
-    builder.button(text=t(lang, "btn.menu"), callback_data="menu:main")
-    builder.adjust(2, 2, 1)
+    builder.adjust(2, 2)
     return builder.as_markup()
 
 
@@ -19,15 +18,13 @@ def fun_menu_keyboard(lang: str = "ru") -> InlineKeyboardMarkup:
     builder.button(text=t(lang, "btn.horoscope"), callback_data="fun:horoscope")
     builder.button(text=t(lang, "btn.compliment"), callback_data="fun:compliment")
     builder.button(text=t(lang, "btn.game"), callback_data="fun:game")
-    builder.button(text=t(lang, "btn.menu"), callback_data="menu:main")
-    builder.adjust(2, 1, 1)
+    builder.adjust(2, 1)
     return builder.as_markup()
 
 
 def useful_menu_keyboard(lang: str = "ru") -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     builder.button(text=t(lang, "btn.useful_advice"), callback_data="useful:advice")
-    builder.button(text=t(lang, "btn.menu"), callback_data="menu:main")
     builder.adjust(1)
     return builder.as_markup()
 
