@@ -11,8 +11,7 @@ from handlers.keyboards import (
     language_keyboard,
 )
 from handlers.ui import send_or_update_hub
-from utils.i18n import t, resolve_user_lang, text_variants
-from database.db_setup import set_user_language
+from utils.i18n import t, resolve_user_lang, text_variants, set_user_language_cached
 
 router = Router()
 
@@ -176,7 +175,7 @@ async def cb_menu_useful(call: CallbackQuery, ui_state):
 @router.callback_query(F.data.startswith("lang:set:"))
 async def cb_set_language(call: CallbackQuery, ui_state):
     lang = call.data.split(":")[-1]
-    await set_user_language(call.from_user.id, lang)
+    await set_user_language_cached(call.from_user.id, lang)
     await _show_reply_menu(call.message, lang)
     await send_or_update_hub(call.message, t(lang, "menu.welcome"), None, ui_state, repost=True)
     await call.answer(t(lang, "lang.updated"))

@@ -1,10 +1,14 @@
 from __future__ import annotations
 
 from database.db_setup import get_user_language, set_user_language
+from utils.cache import TTLCache
 
 
 SUPPORTED_LANGS = ("ru", "en", "cs")
 DEFAULT_LANG = "ru"
+
+_LANG_CACHE = TTLCache(max_items=4096)
+_LANG_CACHE_TTL = 60 * 60 * 6  # 6 hours
 
 LANGUAGE_NAMES = {
     "ru": "Русский",
@@ -215,9 +219,20 @@ def normalize_lang(code: str | None) -> str:
 
 
 async def resolve_user_lang(user_id: int, telegram_code: str | None) -> str:
+    cached = _LANG_CACHE.get(user_id)
+    if cached in SUPPORTED_LANGS:
+        return cached
+
     lang = await get_user_language(user_id)
     if lang in SUPPORTED_LANGS:
+        _LANG_CACHE.set(user_id, lang, ttl=_LANG_CACHE_TTL)
         return lang
     lang = normalize_lang(telegram_code)
     await set_user_language(user_id, lang)
+    _LANG_CACHE.set(user_id, lang, ttl=_LANG_CACHE_TTL)
     return lang
+
+
+async def set_user_language_cached(user_id: int, language: str) -> None:
+    await set_user_language(user_id, language)
+    _LANG_CACHE.set(user_id, language, ttl=_LANG_CACHE_TTL)
