@@ -220,3 +220,4 @@ async def facts_nav(
     await update_user_facts(call.from_user.id, facts, index)
     await _send_fact_and_menu(call.message, facts, index, ui_state, lang)
     await call.answer()
+
